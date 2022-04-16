@@ -1,2 +1,2 @@
 # sqlite-c
-scratch sqlite with c
+scratch develop sqlite with c
