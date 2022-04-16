@@ -27,6 +27,7 @@
           in pkgs.mkShell {
             buildInputs = with pkgs; [
               gcc
+              ruby
             ];
           });
     };
