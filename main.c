@@ -6,7 +6,7 @@
 
 // define the column size
 #define COLUMN_USERNAME_SIZE 32
-#define COLUMN_EMAIL_SIZE 25
+#define COLUMN_EMAIL_SIZE 255
 
 /* define the rows layout */
 typedef struct {
@@ -27,7 +27,7 @@ typedef struct {
 	------------------------------
 	| email	     | 255  |   36   |
 	------------------------------
-	| row_size	 | 291  |        |
+	| total	     | 291  |        |
 */
 
 const uint32_t ID_SIZE = size_of_attrubutes(Row, id);
@@ -46,9 +46,8 @@ const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
 const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
 
 typedef struct {
-	// 行のページ
 	uint32_t num_rows;
-	// 行の数
+	// テーブルのページ数。100まで
 	void* pages[TABLE_MAX_PAGES];
 } Table;
 
