@@ -233,8 +233,8 @@ void print_row(Row* row) {
 // copy the member value to the destination offset
 static void serialize_row(Row* source, void* destination) {
 	memcpy(destination + ID_OFFSET, &(source->id), ID_SIZE);
-	memcpy(destination + USERNAME_OFFSET, &(source->username), USERNAME_SIZE);
-	memcpy(destination + EMAIL_OFFSET, &(source->email), EMAIL_SIZE);
+	strncpy(destination + USERNAME_OFFSET, source->username, USERNAME_SIZE);
+	strncpy(destination + EMAIL_OFFSET, source->email, EMAIL_SIZE);
 }
 
 // copy the offset of the source to the offset of the member
