@@ -55,9 +55,18 @@ typedef struct {
 } Pager;
 
 typedef struct {
+	// 全体の行数を保持
 	uint32_t num_rows;
 	Pager* pager;
 } Table;
+
+// テーブル内の場所を表すオブジェクト
+typedef struct {
+	Table* table;
+	uint32_t row_num;
+	// 次に行を挿入したい場所。最後の要素の1つ後ろの位置を示す
+	bool end_of_table;
+} Cursor;
 
 typedef struct {
 	char* buffer;
@@ -106,13 +115,16 @@ static ExecuteResult execute_insert(Statement* statement, Table* table);
 static ExecuteResult execute_select(Statement* statement, Table* table);
 static void serialize_row(Row* source, void* destination);
 static void deserialize_row(void* source, Row* destination);
-static void* row_slot(Table* table, uint32_t row_num);
+static void* cursor_value(Cursor* cursor);
 static void print_row(Row* row);
 static Table* db_open();
 static void db_close(Table* table);
 static Pager* pager_open(const char* filename);
 static void* get_page(Pager* pager, uint32_t page_num);
 static void pager_flush(Pager* pager, uint32_t page_num, uint32_t size);
+static Cursor* table_start(Table* table);
+static Cursor* table_end(Table* table);
+static void cursor_advance(Cursor* cursor);
 
 static InputBuffer* new_input_buffer() {
 	InputBuffer* input_buffer = (InputBuffer*)malloc(sizeof(InputBuffer));
@@ -209,19 +221,26 @@ static ExecuteResult execute_insert(Statement* statement, Table* table) {
 	}
 
 	Row* row_to_insert = &(statement->row_to_insert);
+	Cursor* cursor = table_end(table);
 
-	serialize_row(row_to_insert, row_slot(table, table->num_rows));
+	serialize_row(row_to_insert, cursor_value(cursor));
 	table->num_rows += 1;
+
+	free(cursor);
 
 	return EXIT_SUCCESS;
 }
 
 static ExecuteResult execute_select(Statement* statement, Table* table) {
+	Cursor* cursor = table_start(table);
 	Row row;
-	for (uint32_t i = 0; i < table->num_rows; i++) {
-		deserialize_row(row_slot(table, i), &row);
+	while (!(cursor->end_of_table)) {
+		deserialize_row(cursor_value(cursor), &row);
 		print_row(&row);
+		cursor_advance(cursor);
 	}
+
+	free(cursor);
 
 	return EXECUTE_SUCCESS;
 }
@@ -244,9 +263,11 @@ static void deserialize_row(void* source, Row* destination) {
 	memcpy(&(destination->email), source + EMAIL_OFFSET, EMAIL_SIZE);
 }
 
-static void* row_slot(Table* table, uint32_t row_num) {
+// カーソルで記述された位置へのポインタを返す
+static void* cursor_value(Cursor* cursor) {
+	uint32_t row_num = cursor->row_num;
 	uint32_t page_num = row_num / ROWS_PER_PAGE;
-	void* page = get_page(table->pager, page_num);
+	void* page = get_page(cursor->table->pager, page_num);
 	uint32_t row_offset = row_num % ROWS_PER_PAGE;
 	uint32_t byte_offset = row_offset * ROW_SIZE;
 
@@ -264,6 +285,13 @@ static Table* db_open(const char* filename) {
 	table->num_rows = num_rows;
 
 	return table;
+}
+
+static void cursor_advance(Cursor* cursor) {
+	cursor->row_num += 1;
+	if (cursor->row_num >= cursor->table->num_rows) {
+		cursor->end_of_table = true;
+	}
 }
 
 // ページキャッシュをディスクにフラッシュ
@@ -395,6 +423,24 @@ static void pager_flush(Pager* pager, uint32_t page_num, uint32_t size) {
 		printf("Error writing: %d\n", errno);
 		exit(EXIT_FAILURE);
 	}
+}
+
+static Cursor* table_start(Table* table) {
+	Cursor* cursor = malloc(sizeof(Cursor));
+	cursor->table = table;
+	cursor->row_num = 0;
+	cursor->end_of_table = (table->num_rows == 0);
+
+	return cursor;
+}
+
+static Cursor* table_end(Table* table) {
+	Cursor* cursor = malloc(sizeof(Cursor));
+	cursor->table = table;
+	cursor->row_num = table->num_rows;
+	cursor->end_of_table = true;
+
+	return cursor;
 }
 
 int main(int argc, char *argv[]) {
