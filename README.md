@@ -3,7 +3,8 @@ scratch develop sqlite with c.
 
 # How to run
 simply run this command.
-`make run`
+`make db`
+`./db sample.db`
 
 run tests using rspec.
 `make test`
